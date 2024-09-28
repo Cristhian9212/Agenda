@@ -1,4 +1,4 @@
-# Contact Management App
+# Agenda de contactos
 
 Esta es una aplicación desarrollada en **Kotlin** utilizando **Jetpack Compose** para gestionar contactos. La app permite agregar, visualizar, editar y eliminar contactos, presentando una interfaz moderna con degradados suaves, íconos circulares y tarjetas interactivas.
 
