@@ -32,12 +32,15 @@ fun screenB(navController: NavController, contactViewModel: ContactViewModel = v
         colors = listOf(Color(0xFFE3F2FD), Color(0xFFBBDEFB)) // Colores de degradé suave
     )
 
+    // Estado para controlar qué contacto está siendo editado
+    var contactToEdit by remember { mutableStateOf<Contact?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
             .background(gradientBrush), // Aplicar el degradé como fondo
-        verticalArrangement = Arrangement.SpaceBetween, // Cambiado para distribuir el espacio
+        verticalArrangement = Arrangement.SpaceBetween,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
@@ -51,42 +54,54 @@ fun screenB(navController: NavController, contactViewModel: ContactViewModel = v
 
         // Lista de contactos
         LazyColumn(
-            modifier = Modifier.weight(1f), // Ocupa el espacio restante
+            modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(contactViewModel.contactList.size) { index ->
                 val contact = contactViewModel.contactList[index]
                 ContactCard(
                     contact = contact,
-                    onDelete = { contactViewModel.eliminarContacto(contact) }, // Eliminar contacto
-                    onEdit = { /* Acción para editar el contacto */ } // Lógica para editar el contacto
+                    onDelete = { contactViewModel.eliminarContacto(contact) },
+                    onEdit = { contactToEdit = contact } // Actualiza el contacto a editar
                 )
             }
+        }
+
+        // Mostrar diálogo de edición si hay un contacto seleccionado
+        contactToEdit?.let { contact ->
+            showEditContactDialog(
+                contact = contact,
+                onDismiss = { contactToEdit = null },
+                onSave = { updatedContact ->
+                    contactViewModel.modificarContacto(contact, updatedContact)
+                    contactToEdit = null
+                }
+            )
         }
 
         // Botón redondo para volver a la pantalla A
         FloatingActionButton(
             onClick = { navController.popBackStack() },
             modifier = Modifier
-                .align(Alignment.End) // Alineado en la esquina inferior derecha
-                .padding(16.dp), // Espacio alrededor del botón
-            shape = CircleShape, // Forma circular
-            containerColor = Color(0xFFECE8F3) // Color del botón
+                .align(Alignment.End)
+                .padding(16.dp),
+            shape = CircleShape,
+            containerColor = Color(0xFF6200EE)
         ) {
-            Icon(Icons.Filled.ArrowBack, contentDescription = "Volver", tint = Color.Black) // Ícono de flecha hacia atrás
+            Icon(Icons.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
         }
     }
 }
 
 @Composable
 fun ContactCard(contact: Contact, onDelete: () -> Unit, onEdit: () -> Unit) {
-    var expanded by remember { mutableStateOf(false) } // Estado para controlar si la tarjeta está expandida
+    var expanded by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { expanded = !expanded } // Cambiar estado al hacer clic
-            .padding(vertical = 8.dp), // Añadir padding superior e inferior a la tarjeta
+            .clickable { expanded = !expanded }
+            .padding(vertical = 8.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F0F0)),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
@@ -99,24 +114,23 @@ fun ContactCard(contact: Contact, onDelete: () -> Unit, onEdit: () -> Unit) {
             // Icono circular con inicial del nombre
             Box(
                 modifier = Modifier
-                    .size(60.dp) // Tamaño del ícono
+                    .size(60.dp)
                     .padding(8.dp)
             ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     shape = CircleShape,
-                    color = Color(0xFFD3D3D3) // Color más claro para el fondo del ícono
+                    color = Color(0xFFD3D3D3)
                 ) {
-                    // Texto centrado en el círculo
                     Text(
-                        text = contact.nombres.first().toString(), // Obtener la inicial del nombre
+                        text = contact.nombres.first().toString(),
                         modifier = Modifier
-                            .align(Alignment.Center) // Centrar la inicial
-                            .wrapContentSize(), // Ajustar el tamaño del texto para centrarlo mejor
+                            .align(Alignment.Center)
+                            .wrapContentSize(),
                         fontWeight = FontWeight.Bold,
                         fontSize = 24.sp,
                         color = Color.DarkGray,
-                        textAlign = TextAlign.Center // Alinear el texto al centro
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -132,24 +146,17 @@ fun ContactCard(contact: Contact, onDelete: () -> Unit, onEdit: () -> Unit) {
                     fontSize = 18.sp
                 )
 
-                // Mostrar u ocultar los detalles del contacto
                 if (expanded) {
                     Text(buildAnnotatedString {
-                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                            append("Apellidos: ")
-                        }
+                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { append("Apellidos: ") }
                         append(contact.apellidos)
                     })
                     Text(buildAnnotatedString {
-                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                            append("Teléfono: ")
-                        }
+                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { append("Teléfono: ") }
                         append(contact.telefono)
                     })
                     Text(buildAnnotatedString {
-                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                            append("Dirección: ")
-                        }
+                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { append("Dirección: ") }
                         append(contact.direccion)
                     })
                 }
@@ -167,4 +174,60 @@ fun ContactCard(contact: Contact, onDelete: () -> Unit, onEdit: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+fun showEditContactDialog(
+    contact: Contact,
+    onDismiss: () -> Unit,
+    onSave: (Contact) -> Unit
+) {
+    var nombres by remember { mutableStateOf(contact.nombres) }
+    var apellidos by remember { mutableStateOf(contact.apellidos) }
+    var telefono by remember { mutableStateOf(contact.telefono) }
+    var direccion by remember { mutableStateOf(contact.direccion) }
+
+    AlertDialog(
+        onDismissRequest = { onDismiss() },
+        title = { Text("Editar Contacto") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = nombres,
+                    onValueChange = { nombres = it },
+                    label = { Text("Nombres") }
+                )
+                OutlinedTextField(
+                    value = apellidos,
+                    onValueChange = { apellidos = it },
+                    label = { Text("Apellidos") }
+                )
+                OutlinedTextField(
+                    value = telefono,
+                    onValueChange = { telefono = it },
+                    label = { Text("Teléfono") }
+                )
+                OutlinedTextField(
+                    value = direccion,
+                    onValueChange = { direccion = it },
+                    label = { Text("Dirección") }
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val updatedContact = Contact(nombres, apellidos, telefono, direccion)
+                    onSave(updatedContact)
+                }
+            ) {
+                Text("Guardar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onDismiss() }) {
+                Text("Cancelar")
+            }
+        }
+    )
 }
